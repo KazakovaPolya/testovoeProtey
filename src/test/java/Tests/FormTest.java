@@ -3,6 +3,11 @@ package Tests;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebElement;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,46 +35,58 @@ public class FormTest extends BaseTest {
     })
     void testSuccessfulSubmission(String email, String name, String gender, String select1, String select2) {
         loginPage.successlogin();
-        formPage.fillAndSubmitForm(email, name, gender, select1, select2);
-        driver.findElement(formPage.modalClose).click();
-        formPage.checkDatesInTable(email, name, gender, select1, select2);
+        formPage
+                .enterEmail(email)
+                .enterName(name)
+                .selectGender(gender)
+                .selectCheckbox(select1)
+                .selectRadio(select2)
+                .submitForm()
+                .closeModal();
+        List<String> actualRow = formPage.getLastRowData();
+        assertEquals(Arrays.asList(email, name, gender, !select1.equals("null") ? select1 : "Нет", !select2.equals("null") ? select2 : ""), actualRow);
     }
 
     //отправка пустой формы
     @Test
     void testEmptyFormSubmission() {
         loginPage.successlogin();
-        driver.findElement(formPage.submit).click();
-        assertEquals("Неверный формат E-Mail", driver.findElement(formPage.validateMessage).getText());
+        formPage.submitForm();
+        assertEquals("Неверный формат E-Mail", formPage.getValidationMessage());
     }
 
-    //Проверка валидации: некорректный E-Mail
     @Test
     void testInvalidEmail() {
         loginPage.successlogin();
-        formPage.fillAndSubmitForm("invalid-email", "Иван", "Мужской", "null", "null");
-        assertEquals("Неверный формат E-Mail", driver.findElement(formPage.validateMessage).getText());
+        formPage.enterEmail("invalid-email")
+                .enterName("Иван")
+                .selectGender("Мужской")
+                .submitForm();
+        assertEquals("Неверный формат E-Mail", formPage.getValidationMessage());
     }
 
-    //"Проверка валидации: пустое имя"
     @Test
     void testEmptyName() {
         loginPage.successlogin();
-        formPage.fillAndSubmitForm("fd@mail.ru", "", "Мужской", "null", "null");
-        assertEquals("Поле имя не может быть пустым", driver.findElement(formPage.validateMessage).getText());
+        formPage.enterEmail("fd@mail.ru")
+                .enterName("")
+                .selectGender("Мужской")
+                .submitForm();
+        assertEquals("Поле имя не может быть пустым", formPage.getValidationMessage());
     }
 
-    //"Проверка добавления одинаковых записей"
     @Test
     void testDoubleEmail() {
         loginPage.successlogin();
-        formPage.fillAndSubmitForm("fd@mail.ru", "Petr", "Мужской", "null", "null");
-        driver.findElement(formPage.modalClose).click();
-        formPage.checkDatesInTable("fd@mail.ru", "Petr", "Мужской", "null", "null");
-        driver.findElement(formPage.submit).click();
-        driver.findElement(formPage.modalClose).click();
-        assertEquals(2,driver.findElements(formPage.table).size());
-        formPage.checkDatesInTable("fd@mail.ru", "Petr", "Мужской", "null", "null");
+        formPage.enterEmail("fd@mail.ru")
+                .enterName("Petr")
+                .selectGender("Мужской")
+                .submitForm()
+                .closeModal();
+        List<String> firstEntry = formPage.getLastRowData();
+        assertEquals(Arrays.asList("fd@mail.ru", "Petr", "Мужской", "Нет", ""), firstEntry);
+        formPage.submitForm().closeModal();
+        List<WebElement> rows = driver.findElements(By.cssSelector("#dataTable > tbody > tr"));
+        assertEquals(2, rows.size());
     }
-
 }
